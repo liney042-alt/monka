@@ -1,0 +1,619 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.2.0
+  description: PetPulse API contract
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: account
+    description: Authenticated PetPulse account and onboarding operations
+  - name: pets
+    description: Owner-scoped pet profile operations
+  - name: providers
+    description: Provider-owned business profile operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /me:
+    get:
+      operationId: getMe
+      tags: [account]
+      summary: Get the authenticated PetPulse profile
+      description: Creates a basic owner profile on first authenticated access. The admin role is never self-assigned.
+      responses:
+        "200":
+          description: Current account profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeProfile"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /me/onboarding:
+    put:
+      operationId: completeOnboarding
+      tags: [account]
+      summary: Complete first-time account setup
+      description: Selects an owner or provider account type once. Admin access is provisioned separately by trusted configuration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardingInput"
+      responses:
+        "200":
+          description: Updated account profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeProfile"
+        "400":
+          description: Invalid input or onboarding already completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /pets:
+    get:
+      operationId: listPets
+      tags: [pets]
+      summary: List the current owner's pets
+      responses:
+        "200":
+          description: Pets owned by the authenticated user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PetProfile"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Owner role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createPet
+      tags: [pets]
+      summary: Create a pet profile for the current owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PetInput"
+      responses:
+        "201":
+          description: Created pet profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PetProfile"
+        "400":
+          description: Invalid pet data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Owner role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /pets/{petId}:
+    patch:
+      operationId: updatePet
+      tags: [pets]
+      summary: Update one of the current owner's pets
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PetUpdate"
+      responses:
+        "200":
+          description: Updated pet profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PetProfile"
+        "400":
+          description: Invalid pet data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Owner role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Pet not found for the current owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deletePet
+      tags: [pets]
+      summary: Delete one of the current owner's pets
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Pet deleted
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Owner role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Pet not found for the current owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /provider-profile:
+    get:
+      operationId: getProviderProfile
+      tags: [providers]
+      summary: Get the current provider's business profile
+      responses:
+        "200":
+          description: Provider profile; null when not yet created
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: "#/components/schemas/ProviderProfile"
+                  - type: "null"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Provider role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    put:
+      operationId: saveProviderProfile
+      tags: [providers]
+      summary: Create or update the current provider's business profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderProfileInput"
+      responses:
+        "200":
+          description: Saved provider profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderProfile"
+        "400":
+          description: Invalid provider profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Provider role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /admin/overview:
+    get:
+      operationId: getAdminOverview
+      tags: [account]
+      summary: Get account and provider moderation totals
+      responses:
+        "200":
+          description: Administrative overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /admin/providers:
+    get:
+      operationId: listAdminProviders
+      tags: [providers]
+      summary: List provider profiles for moderation
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, approved, suspended]
+      responses:
+        "200":
+          description: Provider profiles matching the requested status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderProfile"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /admin/providers/{providerId}/approval:
+    patch:
+      operationId: updateProviderApproval
+      tags: [providers]
+      summary: Approve or suspend a provider profile
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderApprovalInput"
+      responses:
+        "200":
+          description: Updated provider profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderProfile"
+        "400":
+          description: Invalid approval status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Provider profile not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    MeProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        role:
+          type: string
+          enum: [owner, provider, admin]
+        onboardingCompleted:
+          type: boolean
+        providerStatus:
+          type: string
+          enum: [none, pending, approved, suspended]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - displayName
+        - role
+        - onboardingCompleted
+        - providerStatus
+        - createdAt
+        - updatedAt
+    OnboardingInput:
+      type: object
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        requestedRole:
+          type: string
+          enum: [owner, provider]
+      required:
+        - displayName
+        - requestedRole
+    PetProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        species:
+          type: string
+        breed:
+          type: ["string", "null"]
+        age:
+          type: ["string", "null"]
+        emergencyContact:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [home, walking, lost]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - species
+        - breed
+        - age
+        - emergencyContact
+        - status
+        - createdAt
+        - updatedAt
+    PetInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        species:
+          type: string
+          minLength: 1
+          maxLength: 60
+        breed:
+          type: ["string", "null"]
+          maxLength: 120
+        age:
+          type: ["string", "null"]
+          maxLength: 80
+        emergencyContact:
+          type: ["string", "null"]
+          maxLength: 240
+      required:
+        - name
+        - species
+    PetUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        species:
+          type: string
+          minLength: 1
+          maxLength: 60
+        breed:
+          type: ["string", "null"]
+          maxLength: 120
+        age:
+          type: ["string", "null"]
+          maxLength: 80
+        emergencyContact:
+          type: ["string", "null"]
+          maxLength: 240
+        status:
+          type: string
+          enum: [home, walking, lost]
+    ProviderProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        category:
+          type: string
+          enum: [veterinary, daycare, walker, shelter, store, other]
+        neighborhood:
+          type: string
+        description:
+          type: ["string", "null"]
+        approvalStatus:
+          type: string
+          enum: [pending, approved, suspended]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - category
+        - neighborhood
+        - description
+        - approvalStatus
+        - createdAt
+        - updatedAt
+    ProviderProfileInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        category:
+          type: string
+          enum: [veterinary, daycare, walker, shelter, store, other]
+        neighborhood:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: ["string", "null"]
+          maxLength: 1000
+      required:
+        - name
+        - category
+        - neighborhood
+    ProviderApprovalInput:
+      type: object
+      properties:
+        approvalStatus:
+          type: string
+          enum: [approved, suspended]
+      required:
+        - approvalStatus
+    AdminOverview:
+      type: object
+      properties:
+        accounts:
+          type: integer
+          minimum: 0
+        pets:
+          type: integer
+          minimum: 0
+        providerProfiles:
+          type: integer
+          minimum: 0
+        pendingProviders:
+          type: integer
+          minimum: 0
+      required:
+        - accounts
+        - pets
+        - providerProfiles
+        - pendingProviders
+
